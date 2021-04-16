@@ -1,13 +1,13 @@
 tmp/
 dist/
 venv/
-mongodb/data/journal
-mongodb/data/diagnostic.data
-mongodb/data/*.wt
-mongodb/data/*.bson
-mongodb/data/*.lock
-mongodb/data/WiredTiger*
-mongodb/data/*.turtle
+.docker/mongodb/data/journal
+.docker/mongodb/data/diagnostic.data
+.docker/mongodb/data/*.wt
+.docker/mongodb/data/*.bson
+.docker/mongodb/data/*.lock
+.docker/mongodb/data/WiredTiger*
+.docker/mongodb/data/*.turtle
 
 node_modules/
 /.idea

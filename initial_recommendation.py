@@ -26,7 +26,7 @@ try:
 
     # Redis conneciton
     print('Connecting to the Redis databse...')
-    r = redis.Redis(host='127.0.0.1', port=6379)
+    r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
 except Exception as err:
     print(err)
     sys.exit(1)

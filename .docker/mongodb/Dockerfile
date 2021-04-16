@@ -1,0 +1,5 @@
+
+# build version
+ARG MONGO_VERSION
+
+FROM mongo:${MONGO_VERSION}
