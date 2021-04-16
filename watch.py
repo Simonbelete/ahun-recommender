@@ -10,37 +10,51 @@ try:
     mongodbUrl = os.getenv('MONGODB_URL')
     client = MongoClient(mongodbUrl)
     db = client.ahunbackup
+
+    # Redis conneciton
+    print('Connecting to the Redis databse...')
+    r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
 except pymongo.errors.ServerSelectionTimeoutError as err:
     print(err)
     sys.exit(1)
 
 
-# while True:
-#     try:
-#         print('Lising to database')
-#         for insert_change in db['vibes'].watch(
-#             [{'$match': {'operationType': 'insert'}}]
-#         ):
-#             print(insert_change)
-#     except pymongo.errors.PyMongoError as ex:
-#         print(ex)
-
-
 def watchVibes():
+    """ Watch `vibes` collection """
     while True:
-        print('Watching vibes')
+        try:
+            for insert_change in db['vibes'].watch(
+                [{'$match': {'operationType': 'insert'}}]
+            ):
+            
+        except pymongo.errors.PyMongoError as ex:
+            # TODO: log the execption
+            print(ex)
+
 
 
 def watchUsers():
     """ Watch `users` collection and build recommendation for user """
     while True:
-        print('Watch users')
+        try:
+            for insert_change in db['vibes'].watch(
+                [{'$match': {'operationType': 'insert'}}]
+            ):
+        except pymongo.errors.PyMongoError as ex:
+            # TODO: log the execption
+            print(ex)
 
 
 def watchUseredges():
     """ Watch `useredges` collection and build recommendation based on that """
     while True:
-        print('Watch users edges')
+        try:
+            for insert_change in db['vibes'].watch(
+                [{'$match': {'operationType': 'insert'}}]
+            ):
+        except pymongo.errors.PyMongoError as ex:
+            # TODO: log the execption
+            print(ex)
 
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
