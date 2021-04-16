@@ -57,7 +57,7 @@ for user in users:
     following = [f['_id'] for f in db['useredges'].find({'source': user['_id'], 'request': 'FOLLOW'})]
 
     # Get not-seen vibes from followed user's and that are also user's interests
-    vibes_followed_interests = [str(f['_id']) for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': {'$in': following}, 'activityType': {'$in': interests}})]
+    vibes_followed_interests = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': {'$in': following}, 'activityType': {'$in': interests}})]
 
     # # Get vibes that are not in interests
     vibes_followed = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests}, 'user': {'$in': following}})]
