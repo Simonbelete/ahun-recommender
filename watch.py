@@ -169,15 +169,52 @@ def watchVibeseen():
             # TODO: log the execption
             print(ex)
 
-def watchUseredges():
+def watchInsertUseredges():
     """ Watch `useredges` collection and build recommendation based on that """
+    try:
+        print('Connecting to the PostgreSQL databse... Watch Insert users')
+        mongodbUrl = os.getenv('MONGODB_URL')
+        client = MongoClient(mongodbUrl)
+        #db = client.ahunbackup
+        db = client.ahuntest
+
+        # Redis conneciton
+        print('Connecting to the Redis databse... Watching Insert users')
+        r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print(err)
+        sys.exit(1)
+
     while True:
         try:
-            for insert_change in db['vibes'].watch(
+            for insert_change in db['useredges'].watch(
                 [{'$match': {'operationType': 'insert'}}]
             ):
-                calculateVibeWeight(insert_change)
-        except pymongo.errors.PyMongoError as ex:
+                seen_vibes = [v['_id'] for v in db['vibeseens'].find({'userId': insert_change['fullDocument']['source']})]
+                user = db['users'].find_one({'_id': insert_change['fullDocument']['source']})
+                
+                # Get the followed user vibes
+                for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': insert_change['fullDocument']['destination']}):
+                    h = False
+                    # In case of the followed user's vibe is already recommended 
+                    # remove the old recommendation and replicate with the new
+                    r.lrem(REDIS_PREFIX + str(user['_id']) + ':recommended-high', 0, str(f['_id']))
+                    r.lrem(REDIS_PREFIX + str(user['_id']) + ':recommended-medium', 0, str(f['_id']))
+                    r.lrem(REDIS_PREFIX + str(user['_id']) + ':recommended-reserve', 0, str(f['_id']))
+                    
+                    # If any of the activity type match user's interests recommend as high
+                    if 'interests' in user and f.get('activityType', []) != []:
+                        for a in f['activityType']:
+                            if a in user['interests']:
+                                r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-high', str(f['_id']))
+                                h = True
+                                break
+            
+                    if h == False:
+                        r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-medium', str(f['_id']))
+                        
+
+        except Exception as ex:
             # TODO: log the execption
             print(ex)
 
@@ -186,4 +223,4 @@ with concurrent.futures.ProcessPoolExecutor() as executor:
     executor.submit(watchInsertVibes)
     executor.submit(watchDeleteVibes)
     executor.submit(watchInsertUsers)
-    executor.submit(watchUseredges)
+    executor.submit(watchInsertUseredges)
