@@ -62,6 +62,9 @@ for user in users:
     # Get user's already seen vibes
     #seen_vibes = [v['_id'] for v in db['vibeseens'].find({'userId': user['_id']})]
     seen_vibes = list(db['vibeseens'].find({'userId': user['_id']}))
+    # In order to avoid user's own vibe to user, treat users vibe as seen
+    for f in db['vibes'].find({'user': user['_id']}):
+        seen_vibes.append(f['_id'])
     
     # Get non blocked following
     following = [f['_id'] for f in db['useredges'].find({'source': user['_id'], 'request': 'FOLLOW'})]
