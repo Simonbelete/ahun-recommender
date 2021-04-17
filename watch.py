@@ -1,36 +1,51 @@
 import os
+import redis
 import concurrent.futures
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
 load_dotenv()
 
-try:
-    print('Connecting to the PostgreSQL databse...')
-    mongodbUrl = os.getenv('MONGODB_URL')
-    client = MongoClient(mongodbUrl)
-    db = client.ahunbackup
-
-    # Redis conneciton
-    print('Connecting to the Redis databse...')
-    r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
-except pymongo.errors.ServerSelectionTimeoutError as err:
-    print(err)
-    sys.exit(1)
-
 
 def watchVibes():
     """ Watch `vibes` collection """
+    try:
+        print('Connecting to the PostgreSQL databse...')
+        mongodbUrl = os.getenv('MONGODB_URL')
+        client = MongoClient(mongodbUrl)
+        db = client.ahunbackup
+
+        # Redis conneciton
+        print('Connecting to the Redis databse...')
+        r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print(err)
+        sys.exit(1)
+
+    # Listen to mongodb changes
     while True:
         try:
             for insert_change in db['vibes'].watch(
                 [{'$match': {'operationType': 'insert'}}]
             ):
-            
+                # Conains id of followers
+                followers = []
+                # Append at the top of all followers
+                # Get user's followers
+                for f in db['useredges'].find({'destination': insert_change['user']}):
+                    followers.append(f['_id'])
+                    # Get follower activity type
+                    if db['users'].find({'_id': f['source'], 'interests': {'$in': insert_change['activityType']}}).count() > 0:
+                        r.lpush(str(user['_id']) + ':recommended-high', str(insert_change['_id']))
+                    else:
+                        r.lpush(str(user['_id']) + ':recommended-medium', str(insert_change['_id']))
+
+                for f in db['users'].find({'_id': {'$nin': followers}}):
+                    r.lpush(str(f['_id']) + ':recommended-medium', str(insert_change['_id']))
+
         except pymongo.errors.PyMongoError as ex:
             # TODO: log the execption
             print(ex)
-
 
 
 def watchUsers():
@@ -40,10 +55,23 @@ def watchUsers():
             for insert_change in db['vibes'].watch(
                 [{'$match': {'operationType': 'insert'}}]
             ):
+                calculateVibeWeight(insert_change)
         except pymongo.errors.PyMongoError as ex:
             # TODO: log the execption
             print(ex)
 
+
+def watchVibeseen():
+    """ Watch `vibeseen` collection and remove vibe from redis """
+    while True:
+        try:
+            for insert_change in db['vibes'].watch(
+                [{'$match': {'operationType': 'insert'}}]
+            ):
+                calculateVibeWeight(insert_change)
+        except pymongo.errors.PyMongoError as ex:
+            # TODO: log the execption
+            print(ex)
 
 def watchUseredges():
     """ Watch `useredges` collection and build recommendation based on that """
@@ -52,6 +80,7 @@ def watchUseredges():
             for insert_change in db['vibes'].watch(
                 [{'$match': {'operationType': 'insert'}}]
             ):
+                calculateVibeWeight(insert_change)
         except pymongo.errors.PyMongoError as ex:
             # TODO: log the execption
             print(ex)

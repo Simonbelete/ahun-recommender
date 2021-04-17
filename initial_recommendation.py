@@ -22,8 +22,8 @@ try:
     print('Connecting to the PostgreSQL databse...')
     mongodbUrl = os.getenv('MONGODB_URL')
     client = MongoClient(mongodbUrl)
-    db = client.ahunbackup
-    #db = client.ahuntest
+    #db = client.ahunbackup
+    db = client.ahuntest
 
     # Redis conneciton
     print('Connecting to the Redis databse...')
@@ -45,7 +45,7 @@ start = time.perf_counter()
 
 users_collection = db['users']
 # TODO: To optimize select users that have followers
-users = users_collection.find({}).limit(1)
+users = users_collection.find({})
 
 for user in users:
     print(f' ***************** {i}')
@@ -71,7 +71,7 @@ for user in users:
 
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': {'$in': following}, 'activityType': {'$in': interests}}):
         vibes_followed_interests.append(f['_id'])
-        # TODO: Remove andy redundent data if found on redis
+        #r.lrem(str(user['_id']) + ':recommended-high', 0, str(f['_id']))
         r.lpush(str(user['_id']) + ':recommended-high', str(f['_id']))
 
     # Get vibes that are based on users interests
@@ -96,7 +96,7 @@ for user in users:
     #other_vibes = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed + vibes_interests}})]
 
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed + vibes_interests}}):
-        # TODO: Remove andy redundent data if found on redis
+        #r.lrem(str(user['_id']) + ':recommended-reserve', 0, str(f['_id']))
         r.lpush(str(user['_id']) + ':recommended-reserve', str(f['_id']))
     
 
