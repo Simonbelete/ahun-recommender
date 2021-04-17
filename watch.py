@@ -85,20 +85,76 @@ def watchDeleteVibes():
             print(ex)
 
 
-
-
-
-def watchUsers():
+def watchInsertUsers():
     """ Watch `users` collection and build recommendation for user """
+    try:
+        print('Connecting to the PostgreSQL databse... Watch Insert users')
+        mongodbUrl = os.getenv('MONGODB_URL')
+        client = MongoClient(mongodbUrl)
+        #db = client.ahunbackup
+        db = client.ahuntest
+
+        # Redis conneciton
+        print('Connecting to the Redis databse... Watching Insert users')
+        r = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'))
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print(err)
+        sys.exit(1)
+
     while True:
         try:
-            for insert_change in db['vibes'].watch(
+            for insert_change in db['users'].watch(
                 [{'$match': {'operationType': 'insert'}}]
             ):
-                calculateVibeWeight(insert_change)
-        except pymongo.errors.PyMongoError as ex:
+                # Calculate user's vibe recommendation
+                # User's interests
+                interests = [f for f in insert_change['fullDocument'].get('interests', [])]
+
+                # Get non blocked following
+                following = [f['_id'] for f in db['useredges'].find({'source': insert_change['fullDocument']['_id'], 'request': 'FOLLOW'})]
+
+                # Get not-seen vibes from followed user's and that are also user's interests
+                #vibes_followed_interests = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': {'$in': following}, 'activityType': {'$in': interests}})]
+                vibes_followed_interests = []
+
+                for f in db['vibes'].find({'user': {'$in': following}, 'activityType': {'$in': interests}}):
+                    vibes_followed_interests.append(f['_id'])
+                    #r.lrem(str(user['_id']) + ':recommended-high', 0, str(f['_id']))
+                    r.lpush(REDIS_PREFIX + str(insert_change['fullDocument']['_id']) + ':recommended-high', str(f['_id']))
+
+                # Get vibes that are based on users interests
+                #vibes_interests = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed}, 'activityType': {'$in': interests}})]
+                vibes_interests = []
+
+                for f in db['vibes'].find({'_id': {'$nin': vibes_followed_interests}, 'activityType': {'$in': interests}}):
+                    vibes_interests.append(f['_id'])
+                    # TODO: Remove andy redundent data if found on redis
+                    r.lpush(REDIS_PREFIX + str(insert_change['fullDocument']['_id']) + ':recommended-medium', str(f['_id']))
+
+                # # Get vibes that are not in interests
+                #vibes_followed = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests}, 'user': {'$in': following}})]
+                vibes_followed = []
+
+                for f in db['vibes'].find({'_id': {'$nin': vibes_followed_interests + vibes_interests}, 'user': {'$in': following}}):
+                    vibes_followed.append(f['_id'])
+                    # TODO: Remove andy redundent data if found on redis
+                    r.lpush(REDIS_PREFIX + str(insert_change['fullDocument']['_id']) + ':recommended-medium', str(f['_id']))
+
+                # Reserved vibes
+                #other_vibes = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed + vibes_interests}})]
+
+                for f in db['vibes'].find({'_id': {'$nin': vibes_followed_interests + vibes_followed + vibes_interests}}):
+                    #r.lrem(str(user['_id']) + ':recommended-reserve', 0, str(f['_id']))
+                    r.lpush(REDIS_PREFIX + str(insert_change['fullDocument']['_id']) + ':recommended-reserve', str(f['_id']))
+
+        except Exception as ex:
             # TODO: log the execption
             print(ex)
+
+
+def watchUpdateUsers():
+    """ watch `users` collection and re-build recommendation for user """
+    pass
 
 
 def watchVibeseen():
@@ -129,5 +185,5 @@ def watchUseredges():
 with concurrent.futures.ProcessPoolExecutor() as executor:
     executor.submit(watchInsertVibes)
     executor.submit(watchDeleteVibes)
-    executor.submit(watchUsers)
+    executor.submit(watchInsertUsers)
     executor.submit(watchUseredges)
