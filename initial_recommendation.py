@@ -17,6 +17,7 @@ FOLLOW_WEIGHT = 0.1
 DEFAULT_WEIGHT = 0.1
 FOLLOWING_WEIGHT = 0.25
 FOLLOWING_INTEREST_WEIGHT = 0.5
+REDIS_PREFIX = os.getenv('REDIS_PREFIX', 'u_')
 
 try:
     print('Connecting to the PostgreSQL databse...')
@@ -72,7 +73,7 @@ for user in users:
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes}, 'user': {'$in': following}, 'activityType': {'$in': interests}}):
         vibes_followed_interests.append(f['_id'])
         #r.lrem(str(user['_id']) + ':recommended-high', 0, str(f['_id']))
-        r.lpush(str(user['_id']) + ':recommended-high', str(f['_id']))
+        r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-high', str(f['_id']))
 
     # Get vibes that are based on users interests
     #vibes_interests = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed}, 'activityType': {'$in': interests}})]
@@ -81,7 +82,7 @@ for user in users:
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests}, 'activityType': {'$in': interests}}):
         vibes_interests.append(f['_id'])
         # TODO: Remove andy redundent data if found on redis
-        r.lpush(str(user['_id']) + ':recommended-medium', str(f['_id']))
+        r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-medium', str(f['_id']))
 
     # # Get vibes that are not in interests
     #vibes_followed = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests}, 'user': {'$in': following}})]
@@ -90,14 +91,14 @@ for user in users:
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_interests}, 'user': {'$in': following}}):
         vibes_followed.append(f['_id'])
         # TODO: Remove andy redundent data if found on redis
-        r.lpush(str(user['_id']) + ':recommended-medium', str(f['_id']))
+        r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-medium', str(f['_id']))
 
     # Reserved vibes
     #other_vibes = [f['_id'] for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed + vibes_interests}})]
 
     for f in db['vibes'].find({'_id': {'$nin': seen_vibes + vibes_followed_interests + vibes_followed + vibes_interests}}):
         #r.lrem(str(user['_id']) + ':recommended-reserve', 0, str(f['_id']))
-        r.lpush(str(user['_id']) + ':recommended-reserve', str(f['_id']))
+        r.lpush(REDIS_PREFIX + str(user['_id']) + ':recommended-reserve', str(f['_id']))
     
 
 """

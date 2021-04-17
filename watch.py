@@ -38,14 +38,13 @@ def watchInsertVibes():
                     followers.append(f['source'])
                     # Get follower activity type
                     if db['users'].find({'_id': f['source'], 'interests': {'$in': insert_change['fullDocument'].get('activityType', [])}}).count() > 0:
-                        r.lpush(str(f['source']) + ':recommended-high', str(insert_change['fullDocument']['_id']))
+                        r.lpush(REDIS_PREFIX + str(f['source']) + ':recommended-high', str(insert_change['fullDocument']['_id']))
                     else:
-                        r.lpush(str(f['source']) + ':recommended-medium', str(insert_change['fullDocument']['_id']))
+                        r.lpush(REDIS_PREFIX + str(f['source']) + ':recommended-medium', str(insert_change['fullDocument']['_id']))
 
                 for f in db['users'].find({'_id': {'$nin': followers}}):
-                    r.lpush(str(f['_id']) + ':recommended-reserve', str(insert_change['fullDocument']['_id']))
+                    r.lpush(REDIS_PREFIX + str(f['_id']) + ':recommended-reserve', str(insert_change['fullDocument']['_id']))
 
-                print(followers)
                 # TODO: add snapshot in order to restart from the previous watch 
         except pymongo.errors.PyMongoError as ex:
             # TODO: log the execption
@@ -70,7 +69,10 @@ def watchDeleteVibes():
 
     while True:
         try:
-            pass
+            # Loop throught every user and try removing the vibe id
+            for f in r.scan_iter(REDIS_PREFIX + '*'):
+                print(f)
+
             # TODO: add snapshot in order to restart from the previous watch 
         except pymongo.errors.PyMongoError as ex:
             # TODO: log the execption
