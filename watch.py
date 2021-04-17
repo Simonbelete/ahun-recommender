@@ -6,6 +6,9 @@ from pymongo import MongoClient
 
 load_dotenv()
 
+REDIS_PREFIX = os.getenv('REDIS_PREFIX', 'user:')
+
+# TODO: Remove duplicate vibes
 
 def watchInsertVibes():
     """ Watch `vibes` collection """
@@ -46,7 +49,7 @@ def watchInsertVibes():
                     r.lpush(REDIS_PREFIX + str(f['_id']) + ':recommended-reserve', str(insert_change['fullDocument']['_id']))
 
                 # TODO: add snapshot in order to restart from the previous watch 
-        except pymongo.errors.PyMongoError as ex:
+        except Exception as ex:
             # TODO: log the execption
             print(ex)
 
@@ -69,12 +72,15 @@ def watchDeleteVibes():
 
     while True:
         try:
-            # Loop throught every user and try removing the vibe id
-            for f in r.scan_iter(REDIS_PREFIX + '*'):
-                print(f)
+            for delete_change in db['vibes'].watch(
+                [{'$match': {'operationType': 'delete'}}]
+            ):
+                # Loop throught every user and try removing the vibe id
+                for f in r.scan_iter(REDIS_PREFIX + '*'):
+                    r.lrem(f, 0, str(delete_change['documentKey']['_id']))
 
             # TODO: add snapshot in order to restart from the previous watch 
-        except pymongo.errors.PyMongoError as ex:
+        except Exception as ex:
             # TODO: log the execption
             print(ex)
 
@@ -122,5 +128,6 @@ def watchUseredges():
 
 with concurrent.futures.ProcessPoolExecutor() as executor:
     executor.submit(watchInsertVibes)
+    executor.submit(watchDeleteVibes)
     executor.submit(watchUsers)
     executor.submit(watchUseredges)
